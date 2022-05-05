@@ -1,36 +1,23 @@
 // Establish a WebSocket connection with the server
+const socket = new WebSocket('ws://' + window.location.host + '/websocket');
 
-var socket = undefined;
-ws_xsrf_token = document.getElementById("ws_xsrf_token").value
 let webRTCConnection;
 
-//Allow users to send messages by pressing enter instead of clicking the Send button
+// Allow users to send messages by pressing enter instead of clicking the Send button
 document.addEventListener("keypress", function (event) {
 	if (event.code === "Enter") {
 		sendMessage();
 	}
 });
 
-function setUp(){
-	socket = new WebSocket('ws://' + window.location.host + '/websocket');
-	msg()
-}
-
 // Read the comment the user is sending to chat and send it to the server over the WebSocket as a JSON string
 function sendMessage() {
-
-
 	const chatBox = document.getElementById("chat-comment");
-	const tokenBox = document.getElementById('ws_xsrf_token')
-
-	const token = tokenBox.value;
 	const comment = chatBox.value;
 	chatBox.value = "";
 	chatBox.focus();
 	if (comment !== "") {
-		console.log("send")
-		socket.send(JSON.stringify({'messageType': 'chatMessage', 'comment': comment,'ws_xsrf_token':token}));
-
+		socket.send(JSON.stringify({'messageType': 'chatMessage', 'comment': comment}));
 	}
 }
 
@@ -56,41 +43,33 @@ function get_chat_history() {
 }
 
 // Called whenever data is received from the server over the WebSocket connection
-function msg(){
-	socket.onmessage = function (ws_message) {
-		const message = JSON.parse(ws_message.data);
-		const messageType = message.messageType
+socket.onmessage = function (ws_message) {
+	const message = JSON.parse(ws_message.data);
+	const messageType = message.messageType
 
-		switch (messageType) {
-
-			case 'chatMessage':
-
-				addMessage(message);
-				break;
-			case 'webRTC-offer':
-				webRTCConnection.setRemoteDescription(new RTCSessionDescription(message.offer));
-				webRTCConnection.createAnswer().then(answer => {
-					webRTCConnection.setLocalDescription(answer);
-					socket.send(JSON.stringify({'messageType': 'webRTC-answer', 'answer': answer}));
-				});
-				break;
-			case 'webRTC-answer':
-				webRTCConnection.setRemoteDescription(new RTCSessionDescription(message.answer));
-				break;
-			case 'webRTC-candidate':
-				webRTCConnection.addIceCandidate(new RTCIceCandidate(message.candidate));
-				break;
-			default:
-				console.log("received an invalid WS messageType");
-		}
+	switch (messageType) {
+		case 'chatMessage':
+			addMessage(message);
+			break;
+		case 'webRTC-offer':
+			webRTCConnection.setRemoteDescription(new RTCSessionDescription(message.offer));
+			webRTCConnection.createAnswer().then(answer => {
+				webRTCConnection.setLocalDescription(answer);
+				socket.send(JSON.stringify({'messageType': 'webRTC-answer', 'answer': answer}));
+			});
+			break;
+		case 'webRTC-answer':
+			webRTCConnection.setRemoteDescription(new RTCSessionDescription(message.answer));
+			break;
+		case 'webRTC-candidate':
+			webRTCConnection.addIceCandidate(new RTCIceCandidate(message.candidate));
+			break;
+		default:
+			console.log("received an invalid WS messageType");
 	}
 }
 
-
-
-
 function startVideo() {
-
 	const constraints = {video: true, audio: true};
 	navigator.mediaDevices.getUserMedia(constraints).then((myStream) => {
 		const elem = document.getElementById("myVideo");
@@ -136,5 +115,5 @@ function welcome() {
 	get_chat_history()
 
 	// use this line to start your video without having to click a button. Helpful for debugging
-	// startVideo();
+	startVideo();
 }

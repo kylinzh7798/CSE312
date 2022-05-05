@@ -3,7 +3,7 @@
     <title>CSE312 Sample Front End</title>
     <link rel="stylesheet" type="text/css" href="style.css"/>
 </head>
-<input value="WebSocketDefaultToken" name="ws_xsrf_token" id="ws_xsrf_token" hidden>
+
 <body onload="welcome();">
 <h1>CSE312 Sample Page</h1>
 
@@ -25,7 +25,7 @@
 </html>
 
 <form action="/image-upload" id="image-form" method="post" enctype="multipart/form-data">
-    <input value="cse312profJesseHarloff" name="xsrf_token" id="xsrf_token" hidden>
+    <input value="cse312profJesseHarloff" name="xsrf_token" hidden>
     <label for="image-form-comment">Comment: </label>
     <textarea id="image-form-comment" name="comment" cols="40" rows="6"></textarea>
     <br/>
@@ -33,25 +33,10 @@
     <input id="form-file" type="file" name="upload">
     <input type="submit" value="Post">
 </form>
-<h1>Number of page visits: NumberOfVisited</h1>
-{{message display}}
-<br>
-<form action="/" method="post" enctype="multipart/form-data">
-    <label for="fname">Username:</label>
-    <input style="color:#050505" type="text" id="fname" pattern="^[\x20-\x7F]+$" name="Name" required>
-    <br><br>
-    <label for="lname">Password:</label>
-    <input style="color:#050505" type="text" id="lname" pattern="^[\x20-\x7F]+$" name="Password" required>
-    <br><br>
-    <p><input type = "submit" value = "registration" name="registration"/></p >
-    <p><input type="submit" value="login" name="login"/></p >
-</form>
-
-
 
 <label for="chat-comment">Chat: </label>
 <input id="chat-comment" type="text" name="comment">
-<button onclick="setUp()">Set Up WebSocket Connection</button>
+
 <button onclick="sendMessage()">Send</button>
 
 <div id="chat"></div>
@@ -66,9 +51,3 @@
 <br/>
 <video id="otherVideo" autoplay></video>
 <br/>
-
-
-
-
-
-
