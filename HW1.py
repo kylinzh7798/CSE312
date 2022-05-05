@@ -11,7 +11,7 @@ import pymongo
 
 from bson import json_util
 
-client = pymongo.MongoClient()
+
 
 class MyTCPHandler(socketserver.BaseRequestHandler):
     websocket_connections = []
@@ -76,15 +76,6 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
             token_code_byte = full_data[token_code_start_pos:token_code_end_pos]
             token_code = token_code_byte.decode("utf-8")
             print("token", token_code)
-            mydb = client["client"]
-            token_list = mydb["token"]
-            t = token_list.find_one({"token": token_code})
-            if t is None:
-                p = False
-                print(token_code, " is not exist")
-
-                self.request.sendall(
-                    'HTTP/1.1 403 Forbidden\r\nContent-Type: text/plain; charset=utf-8\r\nX-Content-Type-Options: nosniff\r\nContent-length: 13\r\n\r\nAccess denied'.encode())
             if p:
                 boundary = "boundary="
                 boundary_pos = full_data.find(str.encode(boundary))
@@ -132,268 +123,12 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
                     comment_byte = full_data[comment_start_pos:][:comment_length]
                     comment_byte = self.escape_html(comment_byte)
                     comment = comment_byte.decode("utf-8")
-
-                mydb = client["client"]
-                mycol = mydb["input"]
-                filename_idx = mydb["idx"]
-                document = filename_idx.find_one()
-                id = 0
-                if len(file_bytes) > 0:
-                    if document is None:
-                        filename_idx.insert_one({"idx": 0})
-                    else:
-                        id = document["idx"] + 1
-                        new_query = {"$set": {"idx": id}}
-                        filename_idx.update_one(document, new_query)
-                    filename = "image/upload" + str(id) + ".jpg"
-
-                    mycol.insert_one({"comment": comment, "image": file_bytes, "filename": filename})
-                    print("filename: ", filename, "is created")
-
-                    with open(filename, 'wb') as f:
-                        f.write(file_bytes)
-
-                else:
-                    mycol.insert_one({"comment": comment, "image": file_bytes, "filename": "no file"})
-
-                header = 'HTTP/1.1 301 Moved Permanently\r\nX-Content-Type-Options: nosniff\r\nLocation:http://localhost:8080/\r\n\r\n'
+                print("here")
+                header = 'HTTP/1.1 301 Moved Permanently\r\nX-Content-Type-Options: nosniff\r\nLocation:cheshire.cse.buffalo.edu:7798/\r\n\r\n'
                 dataToSend = header.encode()
                 print()
                 self.request.sendall(dataToSend)
 
-        elif content[0] == "POST " and content[1] == "users HTTP":
-
-            js = full_data.decode("utf-8").partition("\r\n\r\n")[2]
-            dic = json.loads(js)
-            email = dic['email']
-            name = dic['username']
-            next_id = 0
-
-            mydb = client["student"]
-            mycol = mydb['Next_ID']
-
-            id_incr = mycol.find_one()
-            if id_incr is None:
-                next_id = 1
-                mycol.insert_one({"_id": 1, "id": 1})
-
-            else:
-                _id = id_incr["id"]
-                next_id = _id + 1
-                new_query = {"$set": {"id": next_id}}
-                mycol.update_one(id_incr, new_query)
-
-            student_collection = mydb["student_col"]
-            student_collection.insert_one({"id": next_id, "email": email, "username": name})
-
-            header = "HTTP/1.1 201 Created\r\nContent-Type:application/json; charset=utf-8\r\nX-Content-Type-Options: nosniff\r\n"
-            header = header + "Content-length: "
-            body = json.dumps({"id": next_id, "email": email, "username": name})
-            header = header + str(len(body))
-            header = header + "\r\n\r\n"
-            header = header + body
-            dataToSend = header.encode()
-            self.request.sendall(dataToSend)
-
-        elif content[0] == "GET " and content[1] == "users HTTP":
-            my_db = client["student"]
-            my_col = my_db["student_col"]
-            body = []
-            for document in my_col.find({}, {"_id": 0, "id": 1, "email": 1, "username": 1}):
-                body.append(document)
-
-            header = "HTTP/1.1 200 OK\r\nContent-Type:application/json; charset=utf-8\r\nX-Content-Type-Options: nosniff\r\n"
-            header = header + "Content-length: "
-            js_body = json.dumps(body)
-            header = header + str(len(js_body))
-            header = header + "\r\n\r\n"
-            header = header + js_body
-            dataToSend = header.encode()
-            self.request.sendall(dataToSend)
-
-        elif content[0] == "GET " and content[1] == "users":
-
-            str_id = content[2].split(' ')[0]
-            int_id = 0
-            for c in str_id:
-                int_id = int_id * 10 + int(c) - int('0')
-            my_db = client["student"]
-            my_col = my_db["student_col"]
-            data = my_col.find_one({"id": int_id}, {"_id": 0, "id": 1, "email": 1, "username": 1})
-
-            if data is None:
-                self.request.sendall(
-                    'HTTP/1.1 404 Not Found\r\nContent-Type: text/plain; charset=utf-8\r\nX-Content-Type-Options: nosniff\r\nContent-length: 36\r\n\r\nThe '
-                    'requested content does not exist'.encode())
-
-            header = "HTTP/1.1 200 OK\r\nContent-Type:application/json; charset=utf-8\r\nX-Content-Type-Options: nosniff\r\n"
-            header = header + "Content-length: "
-            print(data)
-            js_body = json_util.dumps(data)
-            header = header + str(len(js_body))
-            header = header + "\r\n\r\n"
-            header = header + js_body
-            dataToSend = header.encode()
-            self.request.sendall(dataToSend)
-
-        elif content[0] == "PUT " and content[1] == "users":
-
-            str_id = content[2].split(' ')[0]
-            int_id = 0
-            for c in str_id:
-                int_id = int_id * 10 + int(c) - int('0')
-            my_db = client["student"]
-            my_col = my_db["student_col"]
-            data = my_col.find_one({"id": int_id})
-            if data is None:
-                self.request.sendall(
-                    'HTTP/1.1 404 Not Found\r\nContent-Type: text/plain; charset=utf-8\r\nX-Content-Type-Options: nosniff\r\nContent-length: 36\r\n\r\nThe '
-                    'requested content does not exist'.encode())
-
-            js = full_data.decode("utf-8").partition("\r\n\r\n")[2]
-            dic = json.loads(js)
-            email = dic['email']
-            name = dic['username']
-            my_col.update_one({"id": int_id}, {"$set": {"email": email, "username": name}})
-
-            header = "HTTP/1.1 201 Created\r\nContent-Type:application/json; charset=utf-8\r\nX-Content-Type-Options: nosniff\r\n"
-            header = header + "Content-length: "
-            body = json.dumps({"id": int_id, "email": email, "username": name})
-            header = header + str(len(body))
-            header = header + "\r\n\r\n"
-            header = header + body
-            dataToSend = header.encode()
-            self.request.sendall(dataToSend)
-
-        elif content[0] == "DELETE " and content[1] == "users":
-            str_id = content[2].split(' ')[0]
-            int_id = 0
-            for c in str_id:
-                int_id = int_id * 10 + int(c) - int('0')
-            my_db = client["student"]
-            my_col = my_db["student_col"]
-            data = my_col.find_one({"id": int_id})
-            if data is None:
-                self.request.sendall(
-                    'HTTP/1.1 404 Not Found\r\nContent-Type: text/plain; charset=utf-8\r\nX-Content-Type-Options: nosniff\r\nContent-length: 36\r\n\r\nThe '
-                    'requested content does not exist'.encode())
-            my_col.delete_one({"id": int_id})
-            self.request.sendall(
-                'HTTP/1.1 204 No Content\r\nContent-Type: text/plain; charset=utf-8\r\nX-Content-Type-Options: nosniff\r\nContent-length: 0\r\n\r\n'.encode())
-
-        elif content[0] == "POST " and content[1] == " HTTP":
-
-            start_pos = full_data.find(b"Content-Length: ") + len(b"Content-Length: ")
-            content_length = 0
-            while True:
-                if decode_data[start_pos] == '\r':
-                    break
-                content_length = content_length * 10 + int(decode_data[start_pos]) - int("0")
-                start_pos += 1
-
-            self.request.settimeout(3)
-            data = b""
-            content_length -= (len(full_data) - full_data.find(b"\r\n\r\n"))+4
-            while len(data) <= content_length:
-                data += self.request.recv(1024)
-
-            full_data += data
-
-            boundaryCode_start_pos = full_data.find(b"boundary=")+len(b"boundary=")
-            boundaryCode_end_pos = full_data[boundaryCode_start_pos:].find(b"\r\n")+boundaryCode_start_pos
-            boundaryCode = full_data[boundaryCode_start_pos:boundaryCode_end_pos]
-
-            username_start_pos = full_data.find(boundaryCode+b"\r\n"+b'Content-Disposition: form-data; name="Name"\r\n\r\n')+len(boundaryCode+b"\r\n"+b'Content-Disposition: form-data; name="Name"\r\n\r\n')
-            username_end_pos = full_data[username_start_pos:].find(b"\r\n--"+boundaryCode)+username_start_pos
-            username = full_data[username_start_pos:username_end_pos]
-            username = self.escape_html(username)
-
-            password_start_pos = full_data.find(boundaryCode+b"\r\n"+b'Content-Disposition: form-data; name="Password"\r\n\r\n')+len(boundaryCode+b"\r\n"+b'Content-Disposition: form-data; name="Password"\r\n\r\n')
-            password_end_pos = full_data[password_start_pos:].find(b"\r\n--"+boundaryCode)+password_start_pos
-            password = full_data[password_start_pos:password_end_pos]
-            hashed = bcrypt.hashpw(password, bcrypt.gensalt())
-
-            AuthenticationDB = client['AuthenticationDB']
-            userInfor = AuthenticationDB['userInfor']
-
-            visited = self.get_visited(full_data)
-            # login in
-            if full_data.find(boundaryCode+b"\r\n"+b'Content-Disposition: form-data; name="registration"\r\n\r\n') == -1:
-
-                result = userInfor.find_one({"username": username})
-
-                if result is None:
-                    f = open('index.html', 'rb')
-                    lines = b""
-                    for line in f:
-                        lines += line
-                    lines = lines.replace(b"NumberOfVisited",str(visited).encode())
-                    lines = lines.replace(b"{{message display}}",b"<h1>Username is not exist,login in failed</h1>")
-                    template = self.get_comment_history().encode()
-                    size = len(lines)+len(template)
-
-                    header = b"HTTP/1.1 200 OK\r\nSet-Cookie: visited="+str(visited).encode()+b"; Max-Age=3600\r\nContent-Type: text/html; charset=utf-8\r\nX-Content-Type-Options: nosniff\r\nContent-length: "+str(size).encode()+b"\r\n\r\n"+lines+template
-                    self.request.sendall(header)
-                elif not bcrypt.checkpw(password, result['password']):
-
-                    f = open('index.html', 'rb')
-                    lines = b""
-                    for line in f:
-                        lines += line
-                    lines = lines.replace(b"NumberOfVisited",str(visited).encode())
-                    lines = lines.replace(b"{{message display}}",b"<h1>Username and Password does not match,login in failed</h1>")
-                    template = self.get_comment_history().encode()
-                    size = len(lines)+len(template)
-                    header = b"HTTP/1.1 200 OK\r\nSet-Cookie: visited="+str(visited).encode()+b"; Max-Age=3600\r\nContent-Type: text/html; charset=utf-8\r\nX-Content-Type-Options: nosniff\r\nContent-length: "+str(size).encode()+b"\r\n\r\n"+lines+template
-                    self.request.sendall(header)
-                else:
-                    f = open('index.html', 'rb')
-                    lines = b""
-                    for line in f:
-                        lines += line
-                    ws_xsrf_token = result['ws_xsrf_token']
-                    lines = lines.replace(b"WebSocketDefaultToken",ws_xsrf_token.encode())
-                    lines = lines.replace(b"NumberOfVisited",str(visited).encode())
-                    lines = lines.replace(b"{{message display}}",b"<h1>Welcome back, "+result['username']+b"!</h1>")
-                    template = self.get_comment_history().encode()
-                    size = len(lines)+len(template)
-                    authentication_token = binascii.hexlify(os.urandom(11))
-                    authentication_token_secure = bcrypt.hashpw(authentication_token, bcrypt.gensalt())
-                    print("find:", userInfor.find_one({"username":username}))
-
-                    userInfor.update_one({"username":username},{'$set':{"authentication_token":authentication_token_secure}})
-
-                    header = b"HTTP/1.1 200 OK\r\nSet-Cookie: visited="+str(visited).encode()+b"; Max-Age=3600\r\nSet-Cookie: authentication_token="+authentication_token+b"; Max-Age=3600; HttpOnly\r\n"+b"Content-Type: text/html; charset=utf-8\r\nX-Content-Type-Options: nosniff\r\nContent-length: "+str(size).encode()+b"\r\n\r\n"+lines+template
-                    self.request.sendall(header)
-            # registration
-            else:
-                result = userInfor.find_one({"username":username})
-                if result is None:
-                    xsrf_token = binascii.hexlify(os.urandom(11)).decode()
-                    authentication_token = bcrypt.hashpw(binascii.hexlify(os.urandom(11)),bcrypt.gensalt())
-                    userInfor.insert_one({"username": username, "password": hashed, "authentication_token": authentication_token, "ws_xsrf_token": xsrf_token})
-                    f = open('index.html', 'rb')
-                    lines = b""
-                    for line in f:
-                        lines += line
-                    lines = lines.replace(b"NumberOfVisited",str(visited).encode())
-                    lines = lines.replace(b"{{message display}}",b"<h1>Successful registration, you may log in!</h1>")
-                    template = self.get_comment_history().encode()
-                    size = len(lines)+len(template)
-                    header = b"HTTP/1.1 200 OK\r\nSet-Cookie: visited="+str(visited).encode()+b"; Max-Age=3600\r\nContent-Type: text/html; charset=utf-8\r\nX-Content-Type-Options: nosniff\r\nContent-length: "+str(size).encode()+b"\r\n\r\n"+lines+template
-                    self.request.sendall(header)
-
-                else:
-                    f = open('index.html', 'rb')
-                    lines = b""
-                    for line in f:
-                        lines += line
-                    lines = lines.replace(b"NumberOfVisited",str(visited).encode())
-                    lines = lines.replace(b"{{message display}}",b"<h1>Username already exist, pick a different name!</h1>")
-                    template = self.get_comment_history().encode()
-                    size = len(lines)+len(template)
-                    header = b"HTTP/1.1 200 OK\r\nSet-Cookie: visited="+str(visited).encode()+b"; Max-Age=3600\r\nContent-Type: text/html; charset=utf-8\r\nX-Content-Type-Options: nosniff\r\nContent-length: "+str(size).encode()+b"\r\n\r\n"+lines+template
-                    self.request.sendall(header)
 
         elif content[0] == "GET " and content[1] == " HTTP":
             username = ""
@@ -410,14 +145,7 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
                         token_end_pos += 1
                 token = full_data[token_start_pos:token_end_pos]
                 print("cookie token： ",token)
-                AuthenticationDB = client['AuthenticationDB']
-                userInfor = AuthenticationDB['userInfor']
 
-                for item in userInfor.find():
-                    print("item: ",item)
-                    if bcrypt.checkpw(token,item['authentication_token']):
-                        username = item['username'].decode()
-                        xsrf_token = item['ws_xsrf_token']
             print("username:", username)
             template = self.get_comment_history()
             visited = self.get_visited(full_data)
@@ -437,17 +165,14 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
 
 
             size = len(lines)
-            mydb = client["client"]
-            token_list = mydb["token"]
+
             header = header + "Content-length: "
 
             header = header + str(size+len(template.encode('utf-8'))+3)
             header = header + "\r\n\r\n"
             header_byte = str.encode(header)
 
-            if token_list.find_one() is None:
-                print("first time")
-                token_list.insert_one({"token": "cse312profJesseHarloff"})
+
 
             new_token = binascii.hexlify(os.urandom(11)).decode()
             lines = lines.replace("cse312profJesseHarloff", new_token)
@@ -455,7 +180,7 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
             if xsrf_token != "":
                 lines = lines. replace("WebSocketDefaultToken",xsrf_token)
 
-            token_list.insert_one({"token": new_token})
+
 
             header_byte += str.encode(lines)
             header_byte += template.encode("utf-8")
@@ -618,18 +343,8 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
         elif content[1] == "hi HTTP":
 
             self.request.sendall(
-                'HTTP/1.1 301 Moved Permanently\r\nContent-length: 13\r\nX-Content-Type-Options: nosniff\r\nLocation:http://localhost:8080/hello\r\n\r\n'.encode())
-        elif content[0] =='GET ' and content[1] == 'chat-history HTTP':
-            header = "HTTP/1.1 200 OK\r\nContent-Type:application/json;charset=utf-8\r\nX-Content-Type-Options: nosniff\r\n"
-            hw3db = client["hw3db"]
-            chat_history = hw3db["chat_history"]
-            chats = []
-            for document in chat_history.find():
-                chats.append({'username':document['username'],'comment':document['comment']})
-            json_chat = json.dumps(chats,default=str)
-            header += "Content-length: "+str(len(json_chat)) + '\r\n\r\n'+json_chat
+                'HTTP/1.1 301 Moved Permanently\r\nContent-length: 13\r\nX-Content-Type-Options: nosniff\r\nLocation:http://localhost:7798/hello\r\n\r\n'.encode())
 
-            self.request.sendall(header.encode())
         elif content[0] == 'GET ' and content[1] == "websocket HTTP":
             # check authentication_token is valid
             token_start_pos = full_data.find(b"authentication_token=")+len(b"authentication_token=")
@@ -641,13 +356,10 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
             token = full_data[token_start_pos:token_end_pos]
             print(token)
 
-            AuthenticationDB = client['AuthenticationDB']
-            userInfor = AuthenticationDB['userInfor']
 
-            username = ""
-            for item in userInfor.find():
-                if bcrypt.checkpw(token,item["authentication_token"]):
-                    username = item["username"].decode()
+
+            username = "me"
+
 
             if username == "":
                 print("403 response")
@@ -797,49 +509,42 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
                                 payload_msg = json.loads(int(payload_bin, 2).to_bytes((len(payload_bin) + 7) // 8, byteorder='big').decode('utf-8'))
                                 ws_xsrf_token = payload_msg['ws_xsrf_token']
 
-                                ws_result = userInfor.find_one({"ws_xsrf_token":ws_xsrf_token})
-                                # validate html token, if not valid, break immediately
-                                if ws_result is None:
-                                    break
+
+                                payload_msg["username"] = username
+                                print('msg:',payload_msg)
+
+                                payload_msg["comment"] = self.escape_html(payload_msg["comment"].encode()).decode('utf-8')
+
+                                msg_bytes = json.dumps(payload_msg,default=str).encode()
+                                payloadToSend = ""
+                                for b in msg_bytes:
+                                    payloadToSend += '{0:08b}'.format(b)
+                                new_data_len = len(json.dumps(payload_msg).encode())
+
+                                if new_data_len >= 65536:
+                                    lengthToSend = '{0:064b}'.format(len(json.dumps(payload_msg).encode()))
+                                    frameToSend = "1000000101111111" + lengthToSend + payloadToSend
+                                    bytesToSend = int(frameToSend, 2).to_bytes((len(frameToSend) + 7) // 8, byteorder='big')
+
+                                    for conn in MyTCPHandler.websocket_connections:
+                                        conn.request.sendall(bytesToSend)
+
+                                elif new_data_len >= 126:
+                                    lengthToSend = '{0:016b}'.format(len(json.dumps(payload_msg).encode()))
+                                    frameToSend = "1000000101111110" + lengthToSend + payloadToSend
+                                    bytesToSend = int(frameToSend, 2).to_bytes((len(frameToSend) + 7) // 8, byteorder='big')
+                                    for conn in MyTCPHandler.websocket_connections:
+                                        conn.request.sendall(bytesToSend)
+
                                 else:
-                                    payload_msg["username"] = username
-                                    print('msg:',payload_msg)
+                                    lengthToSend = '{0:08b}'.format(len(json.dumps(payload_msg).encode()))
+                                    frameToSend = "10000001" + lengthToSend + payloadToSend
+                                    bytesToSend = int(frameToSend, 2).to_bytes((len(frameToSend) + 7) // 8, byteorder='big')
 
-                                    payload_msg["comment"] = self.escape_html(payload_msg["comment"].encode()).decode('utf-8')
+                                    for conn in MyTCPHandler.websocket_connections:
+                                        conn.request.sendall(bytesToSend)
 
-                                    msg_bytes = json.dumps(payload_msg,default=str).encode()
-                                    payloadToSend = ""
-                                    for b in msg_bytes:
-                                        payloadToSend += '{0:08b}'.format(b)
-                                    new_data_len = len(json.dumps(payload_msg).encode())
 
-                                    if new_data_len >= 65536:
-                                        lengthToSend = '{0:064b}'.format(len(json.dumps(payload_msg).encode()))
-                                        frameToSend = "1000000101111111" + lengthToSend + payloadToSend
-                                        bytesToSend = int(frameToSend, 2).to_bytes((len(frameToSend) + 7) // 8, byteorder='big')
-
-                                        for conn in MyTCPHandler.websocket_connections:
-                                            conn.request.sendall(bytesToSend)
-
-                                    elif new_data_len >= 126:
-                                        lengthToSend = '{0:016b}'.format(len(json.dumps(payload_msg).encode()))
-                                        frameToSend = "1000000101111110" + lengthToSend + payloadToSend
-                                        bytesToSend = int(frameToSend, 2).to_bytes((len(frameToSend) + 7) // 8, byteorder='big')
-                                        for conn in MyTCPHandler.websocket_connections:
-                                            conn.request.sendall(bytesToSend)
-
-                                    else:
-                                        lengthToSend = '{0:08b}'.format(len(json.dumps(payload_msg).encode()))
-                                        frameToSend = "10000001" + lengthToSend + payloadToSend
-                                        bytesToSend = int(frameToSend, 2).to_bytes((len(frameToSend) + 7) // 8, byteorder='big')
-
-                                        for conn in MyTCPHandler.websocket_connections:
-                                            conn.request.sendall(bytesToSend)
-
-                                    hw3db = client["hw3db"]
-                                    chat_history = hw3db["chat_history"]
-                                    payload_msg['len'] = len(str(payload_msg).encode())
-                                    chat_history.insert_one(payload_msg)
                                     print("done")
                             else:
                                 print("***recv: ",recv_bytes)
@@ -872,25 +577,7 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
 
     def get_comment_history(self):
         template = ""
-        mydb = client["client"]
-        mycol = mydb["input"]
-        for document in mycol.find():
-            if document["comment"] != "" and document["image"] != b"":
-                # print("has image")
 
-                comment = self.newline(document["comment"])
-                template = template + comment + "<br>"
-                template = template + "<img src=" + '"' + document[
-                    "filename"] + '" ' + " alt=\"Client's image\" class=\"my_image\"/>"
-                template = template + "<br>"
-            elif document["comment"] == "" and document["image"] != b"":
-                # print("dont have image")
-                template = template + "<img src=" + document[
-                    "filename"] + " alt=\"Client's image\" class=\"my_image\"/>"
-                template = template + "<br>"
-            elif document["comment"] != "" and document["image"] == b"":
-                comment = self.newline(document["comment"])
-                template = template + comment + "<br>"
         return template
 
     def escape_html(self, input):
@@ -899,8 +586,7 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
 
 if __name__ == '__main__':
     host = '0.0.0.0'
-    port = 7191
-
+    port = 7798
     server = socketserver.ThreadingTCPServer((host, port), MyTCPHandler)
     try:
         server.serve_forever()
